@@ -1,158 +1,398 @@
-import java.util.Scanner;
+import javax.swing.*;
+import javax.swing.border.LineBorder;
+import java.awt.*;
 
-public class SudokuSolver {
+public class SudokuSolver extends JFrame {
 
-    private static final int SIZE = 9;
-    private static final int EMPTY = 0;
+    private JTextField[][] cells = new JTextField[9][9];
 
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
+    private JButton solveButton;
+    private JButton clearButton;
+    private JButton exampleButton;
 
-        int[][] grid = readGrid(scanner);
+    private JLabel statusLabel;
 
-        if (!isValidInitialGrid(grid)) {
-            System.out.println("\nThe puzzle has conflicting numbers and cannot be solved.");
-            scanner.close();
-            return;
+    public SudokuSolver() {
+
+        setTitle("SkillCraft Technology - Sudoku Solver");
+        setSize(600, 700);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        setLayout(new BorderLayout(10, 10));
+
+        // Title
+        JLabel title = new JLabel(
+                "SUDOKU SOLVER",
+                SwingConstants.CENTER
+        );
+
+        title.setFont(new Font("Arial", Font.BOLD, 26));
+        title.setBorder(
+                BorderFactory.createEmptyBorder(15, 5, 15, 5)
+        );
+
+        add(title, BorderLayout.NORTH);
+
+        // Create Sudoku grid
+        JPanel mainGrid = new JPanel(
+                new GridLayout(3, 3, 3, 3)
+        );
+
+        mainGrid.setBackground(Color.BLACK);
+
+        for (int boxRow = 0; boxRow < 3; boxRow++) {
+
+            for (int boxCol = 0; boxCol < 3; boxCol++) {
+
+                JPanel box = new JPanel(
+                        new GridLayout(3, 3)
+                );
+
+                box.setBorder(
+                        new LineBorder(Color.BLACK, 2)
+                );
+
+                for (int row = 0; row < 3; row++) {
+
+                    for (int col = 0; col < 3; col++) {
+
+                        int r = boxRow * 3 + row;
+                        int c = boxCol * 3 + col;
+
+                        cells[r][c] = new JTextField();
+
+                        cells[r][c].setHorizontalAlignment(
+                                JTextField.CENTER
+                        );
+
+                        cells[r][c].setFont(
+                                new Font("Arial", Font.BOLD, 22)
+                        );
+
+                        cells[r][c].setBorder(
+                                new LineBorder(Color.GRAY, 1)
+                        );
+
+                        box.add(cells[r][c]);
+                    }
+                }
+
+                mainGrid.add(box);
+            }
         }
 
-        System.out.println("\nUnsolved puzzle:");
-        printGrid(grid);
+        JPanel gridContainer = new JPanel(
+                new GridBagLayout()
+        );
 
-        if (solve(grid)) {
-            System.out.println("\nSolved puzzle:");
-            printGrid(grid);
-        } else {
-            System.out.println("\nThis puzzle has no solution.");
-        }
+        gridContainer.add(mainGrid);
 
-        scanner.close();
+        add(gridContainer, BorderLayout.CENTER);
+
+        // Create buttons
+        solveButton = new JButton("Solve Sudoku");
+        clearButton = new JButton("Clear");
+        exampleButton = new JButton("Load Example");
+
+        JPanel buttonPanel = new JPanel();
+
+        buttonPanel.add(solveButton);
+        buttonPanel.add(clearButton);
+        buttonPanel.add(exampleButton);
+
+        // Status label
+        statusLabel = new JLabel(
+                "Enter Sudoku numbers and click Solve.",
+                SwingConstants.CENTER
+        );
+
+        statusLabel.setFont(
+                new Font("Arial", Font.PLAIN, 14)
+        );
+
+        JPanel bottomPanel = new JPanel(
+                new BorderLayout()
+        );
+
+        bottomPanel.add(buttonPanel, BorderLayout.CENTER);
+        bottomPanel.add(statusLabel, BorderLayout.SOUTH);
+
+        bottomPanel.setBorder(
+                BorderFactory.createEmptyBorder(10, 5, 15, 5)
+        );
+
+        add(bottomPanel, BorderLayout.SOUTH);
+
+        // Button actions
+        solveButton.addActionListener(e -> solveSudoku());
+
+        clearButton.addActionListener(e -> clearGrid());
+
+        exampleButton.addActionListener(e -> loadExample());
     }
 
-    /** Reads the 9x9 grid from the user, one row at a time. */
-    private static int[][] readGrid(Scanner scanner) {
-        int[][] grid = new int[SIZE][SIZE];
+    // Read and solve Sudoku
+    private void solveSudoku() {
 
-        System.out.println("Enter the puzzle row by row.");
-        System.out.println("Separate the 9 values with spaces. Use 0 or . for empty cells.");
-        System.out.println("Example: 5 3 0 0 7 0 0 0 0\n");
+        int[][] board = new int[9][9];
 
-        for (int row = 0; row < SIZE; row++) {
-            while (true) {
-                System.out.print("Row " + (row + 1) + ": ");
-                String[] tokens = scanner.nextLine().trim().split("\\s+");
+        // Read values from input grid
+        for (int row = 0; row < 9; row++) {
 
-                if (tokens.length != SIZE) {
-                    System.out.println("Please enter exactly " + SIZE + " values.");
-                    continue;
-                }
+            for (int col = 0; col < 9; col++) {
 
-                int[] values = new int[SIZE];
-                boolean valid = true;
+                String value = cells[row][col]
+                        .getText().trim();
 
-                for (int col = 0; col < SIZE; col++) {
-                    Integer value = parseCell(tokens[col]);
-                    if (value == null) {
-                        System.out.println("Invalid value '" + tokens[col] + "'. Use digits 1-9, or 0 / . for empty.");
-                        valid = false;
-                        break;
-                    }
-                    values[col] = value;
-                }
+                if (value.isEmpty()) {
 
-                if (valid) {
-                    grid[row] = values;
-                    break;
+                    board[row][col] = 0;
+
+                } else if (value.matches("[1-9]")) {
+
+                    board[row][col] =
+                            Integer.parseInt(value);
+
+                } else {
+
+                    showError(
+                            "Enter only numbers from 1 to 9."
+                    );
+
+                    return;
                 }
             }
         }
-        return grid;
+
+        // Check whether the puzzle is valid
+        if (!isValidBoard(board)) {
+
+            showError(
+                    "Invalid Sudoku! Duplicate numbers found."
+            );
+
+            return;
+        }
+
+        statusLabel.setText("Solving Sudoku...");
+
+        // Solve puzzle
+        if (solve(board)) {
+
+            // Display completed puzzle
+            for (int row = 0; row < 9; row++) {
+
+                for (int col = 0; col < 9; col++) {
+
+                    cells[row][col].setText(
+                            String.valueOf(board[row][col])
+                    );
+                }
+            }
+
+            statusLabel.setText(
+                    "Sudoku solved successfully!"
+            );
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Sudoku solved successfully!"
+            );
+
+        } else {
+
+            statusLabel.setText(
+                    "No solution exists."
+            );
+
+            showError(
+                    "This Sudoku puzzle has no solution."
+            );
+        }
     }
 
-    /** Converts one token to a cell value (0 for empty), or null if it is invalid. */
-    private static Integer parseCell(String token) {
-        if (token.equals(".")) {
-            return EMPTY;
+    // Backtracking algorithm
+    private boolean solve(int[][] board) {
+
+        for (int row = 0; row < 9; row++) {
+
+            for (int col = 0; col < 9; col++) {
+
+                if (board[row][col] == 0) {
+
+                    for (int number = 1;
+                         number <= 9;
+                         number++) {
+
+                        if (isSafe(
+                                board, row, col, number)) {
+
+                            board[row][col] = number;
+
+                            if (solve(board)) {
+                                return true;
+                            }
+
+                            // Backtracking
+                            board[row][col] = 0;
+                        }
+                    }
+
+                    return false;
+                }
+            }
         }
-        try {
-            int value = Integer.parseInt(token);
-            return (value >= 0 && value <= 9) ? value : null;
-        } catch (NumberFormatException e) {
-            return null;
-        }
+
+        return true;
     }
 
-    /** Checks that no given number breaks the Sudoku rules. */
-    private static boolean isValidInitialGrid(int[][] grid) {
-        for (int row = 0; row < SIZE; row++) {
-            for (int col = 0; col < SIZE; col++) {
-                int value = grid[row][col];
-                if (value != EMPTY) {
-                    grid[row][col] = EMPTY;
-                    boolean safe = isSafe(grid, row, col, value);
-                    grid[row][col] = value;
-                    if (!safe) {
+    // Check row, column and 3x3 box
+    private boolean isSafe(
+            int[][] board,
+            int row,
+            int col,
+            int number) {
+
+        // Check row
+        for (int i = 0; i < 9; i++) {
+
+            if (board[row][i] == number) {
+                return false;
+            }
+        }
+
+        // Check column
+        for (int i = 0; i < 9; i++) {
+
+            if (board[i][col] == number) {
+                return false;
+            }
+        }
+
+        // Check 3x3 box
+        int startRow = row - row % 3;
+        int startCol = col - col % 3;
+
+        for (int i = 0; i < 3; i++) {
+
+            for (int j = 0; j < 3; j++) {
+
+                if (board[startRow + i][startCol + j]
+                        == number) {
+
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    // Validate initial Sudoku
+    private boolean isValidBoard(int[][] board) {
+
+        for (int row = 0; row < 9; row++) {
+
+            for (int col = 0; col < 9; col++) {
+
+                int number = board[row][col];
+
+                if (number != 0) {
+
+                    board[row][col] = 0;
+
+                    boolean valid = isSafe(
+                            board, row, col, number
+                    );
+
+                    board[row][col] = number;
+
+                    if (!valid) {
                         return false;
                     }
                 }
             }
         }
+
         return true;
     }
 
-    /** Fills the grid using backtracking. Returns true if a solution is found. */
-    private static boolean solve(int[][] grid) {
-        for (int row = 0; row < SIZE; row++) {
-            for (int col = 0; col < SIZE; col++) {
-                if (grid[row][col] == EMPTY) {
-                    for (int num = 1; num <= 9; num++) {
-                        if (isSafe(grid, row, col, num)) {
-                            grid[row][col] = num;
-                            if (solve(grid)) {
-                                return true;
-                            }
-                            grid[row][col] = EMPTY; // undo and try the next number
-                        }
-                    }
-                    return false; // no number fits this cell
-                }
+    // Clear Sudoku grid
+    private void clearGrid() {
+
+        for (int row = 0; row < 9; row++) {
+
+            for (int col = 0; col < 9; col++) {
+
+                cells[row][col].setText("");
             }
         }
-        return true; // no empty cells left
+
+        statusLabel.setText(
+                "Grid cleared. Enter a new puzzle."
+        );
     }
 
-    /** Returns true if num can be placed at (row, col) without breaking any rule. */
-    private static boolean isSafe(int[][] grid, int row, int col, int num) {
-        for (int i = 0; i < SIZE; i++) {
-            if (grid[row][i] == num || grid[i][col] == num) {
-                return false;
-            }
-        }
+    // Load sample Sudoku puzzle
+    private void loadExample() {
 
-        int boxRow = row - row % 3;
-        int boxCol = col - col % 3;
-        for (int i = 0; i < 3; i++) {
-            for (int j = 0; j < 3; j++) {
-                if (grid[boxRow + i][boxCol + j] == num) {
-                    return false;
+        int[][] example = {
+
+            {5, 3, 0, 0, 7, 0, 0, 0, 0},
+            {6, 0, 0, 1, 9, 5, 0, 0, 0},
+            {0, 9, 8, 0, 0, 0, 0, 6, 0},
+
+            {8, 0, 0, 0, 6, 0, 0, 0, 3},
+            {4, 0, 0, 8, 0, 3, 0, 0, 1},
+            {7, 0, 0, 0, 2, 0, 0, 0, 6},
+
+            {0, 6, 0, 0, 0, 0, 2, 8, 0},
+            {0, 0, 0, 4, 1, 9, 0, 0, 5},
+            {0, 0, 0, 0, 8, 0, 0, 7, 9}
+        };
+
+        for (int row = 0; row < 9; row++) {
+
+            for (int col = 0; col < 9; col++) {
+
+                if (example[row][col] == 0) {
+
+                    cells[row][col].setText("");
+
+                } else {
+
+                    cells[row][col].setText(
+                            String.valueOf(example[row][col])
+                    );
                 }
             }
         }
-        return true;
+
+        statusLabel.setText(
+                "Example Sudoku puzzle loaded."
+        );
     }
 
-    private static void printGrid(int[][] grid) {
-        for (int row = 0; row < SIZE; row++) {
-            if (row % 3 == 0 && row != 0) {
-                System.out.println("------+-------+------");
-            }
-            for (int col = 0; col < SIZE; col++) {
-                if (col % 3 == 0 && col != 0) {
-                    System.out.print("| ");
-                }
-                System.out.print(grid[row][col] == EMPTY ? ". " : grid[row][col] + " ");
-            }
-            System.out.println();
-        }
+    // Display error message
+    private void showError(String message) {
+
+        JOptionPane.showMessageDialog(
+                this,
+                message,
+                "Sudoku Error",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+
+    // Main method
+    public static void main(String[] args) {
+
+        SwingUtilities.invokeLater(() -> {
+
+            SudokuSolver app = new SudokuSolver();
+
+            app.setVisible(true);
+        });
     }
 }
